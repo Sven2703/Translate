@@ -1,0 +1,97 @@
+(define *lex*
+  '((cat nomen (Katze Katze Katze Katze) feminin singular)
+    (cats nomen (Katzen Katzen Katzen Katzen) feminin plural)
+    (dog nomen (Hund Hundes Hund Hund) maskulin singular)
+    (dogs nomen (Hunde Hunde Hunden Hunde) maskulin plural)
+    (eats verb2 (frisst))
+    (eat verb (fresse frisst frisst fressen fresst fressen))
+    (jumps verb2 (springt))
+    (jump verb (springe springst springt springen springt springen))
+    (the artikel ((der des dem den die der den die) (die der der die die der den die) (das des dem das die der den die)))))
+
+(define (satzuebersetzer satz)
+  (define (satzuebersetzer-hilfe satz kasus person numerus wortZuvor)
+    (cond ((null? satz)'())
+          (else (cons (wortuebersetzer (car satz) kasus person numerus *lex* (cdr satz))
+                      (satzuebersetzer-hilfe
+                       (cdr satz)
+                       (grammatik-kasus (car satz) kasus)
+                       (grammatik-person (car satz) person kasus)
+                       (grammatik-numerus-verb (car satz) numerus kasus)
+                       (car satz))))))
+  (satzuebersetzer-hilfe satz 'nominativ 'unbekannt 0 '()))
+
+(define (wortuebersetzer wort kasus person numerus lexikon satz)
+  (cond ((null? lexikon) (cons (cons '(Das Lexikon enthält ) wort) 'nicht))
+        ((equal? (car (car lexikon)) wort) (cond ((equal? (wortart (car lexikon)) 'nomen) (uebersetzer-nomen (car (cdr (cdr (car lexikon)))) kasus))
+                                                   ((equal? (wortart (car lexikon)) 'artikel) (uebersetzer-artikel (car lexikon) kasus satz))
+                                                   ((equal? (wortart (car lexikon)) 'verb) (uebersetzer-verb (car lexikon) person numerus))
+                                                   (else (car (car (cdr (cdr (car lexikon))))))))
+        (else (wortuebersetzer wort kasus person numerus (cdr lexikon) satz))))
+
+(define (wortart lexikoneintrag)
+  (car (cdr lexikoneintrag)))
+
+(define (uebersetzer-nomen lexikoneintrag kasus)
+  (cond ((equal? kasus 'nominativ) (car lexikoneintrag))
+        ((equal? kasus 'genitiv) (car (cdr lexikoneintrag)))
+        ((equal? kasus 'dativ) (car (cdr (cdr lexikoneintrag))))
+        (else (car (cdr (cdr (cdr lexikoneintrag)))))))
+
+(define (uebersetzer-artikel lexikoneintrag kasus satz)
+  (cond ((null? satz) '())
+        ((equal? (wortart (wortfinder (car satz) *lex*)) 'nomen) (cond ((equal? (grammatik-genus (car satz)) 'maskulin) (cond ((equal? (grammatik-numerus-nomen (car satz)) 'plural) (uebersetzer-nomen (cdr (cdr (cdr (cdr (car (car (cdr (cdr lexikoneintrag)))))))) kasus))
+                                                                                                                              (else (uebersetzer-nomen (car (car (cdr (cdr lexikoneintrag)))) kasus))))
+                                                                       ((equal? (grammatik-genus (car satz)) 'feminin) (cond ((equal? (grammatik-numerus-nomen (car satz)) 'plural) (uebersetzer-nomen (cdr (cdr (cdr (cdr (car (cdr (car (cdr (cdr lexikoneintrag))))))))) kasus))
+                                                                                                                             (else (uebersetzer-nomen (car (cdr (car (cdr (cdr lexikoneintrag))))) kasus))))
+                                                                       (else (cond ((equal? (grammatik-numerus-nomen (car satz)) 'plural) (uebersetzer-nomen (cdr (cdr (cdr (cdr (car (cdr (cdr (car (cdr (cdr lexikoneintrag)))))))))) kasus))
+                                                                                   (else (uebersetzer-nomen (car (cdr (cdr (car (cdr (cdr lexikoneintrag)))))) kasus))))))
+        (else (uebersetzer-artikel lexikoneintrag kasus (cdr satz)))))
+
+(define (uebersetzer-verb lexikoneintrag person numerus)
+  (define (ueberstzer-verb-person person lexikoneintrag)
+    (cond ((equal? person 'eins) (car lexikoneintrag))
+          ((equal? person 'zwei) (car (cdr lexikoneintrag)))
+          (else (car (cdr (cdr lexikoneintrag))))))
+  (cond ((= numerus 1) (ueberstzer-verb-person person (car (cdr (cdr lexikoneintrag)))))
+        (else (ueberstzer-verb-person person (cdr (cdr (cdr (car (cdr (cdr lexikoneintrag))))))))))
+
+(define (nominativ lexikoneintrag)
+  (car lexikoneintrag))
+
+(define (genitiv lexikoneintrag)
+  (car (cdr lexikoneintrag)))
+
+(define (dativ lexikoneintrag)
+  (car (cdr (cdr lexikoneintrag))))
+
+(define (akkusativ lexikoneintrag)
+  (car (cdr (cdr (cdr lexikoneintrag)))))
+
+(define (wortfinder wort lexikon)
+  (cond ((null? lexikon) (cons (cons '(Das Lexikon enthält ) wort) 'nicht))
+        ((equal? (car (car lexikon)) wort) (car lexikon))
+        (else (wortfinder wort (cdr lexikon)))))
+
+(define (grammatik-kasus wort kasus)
+  (cond ((equal? (wortart (wortfinder wort *lex*)) 'verb) 'akkusativ)
+        ((equal? (wortart (wortfinder wort *lex*)) 'verb2) 'akkusativ)
+        (else kasus)))
+
+(define (grammatik-person wort person kasus)
+  (cond ((equal? kasus 'nominativ) (cond ((equal? (wortart (wortfinder wort *lex*)) 'nomen) 'drei)
+                                         (else 'eins)))
+        (else person)))
+
+(define (grammatik-numerus-verb wort numerus kasus)
+  (cond ((equal? kasus 'nominativ) (cond ((equal? (wortart (wortfinder wort *lex*)) 'konjunktion) 2)
+                                         ((equal? (wortart (wortfinder wort *lex*)) 'nomen) (cond ((equal? (grammatik-numerus-nomen wort) 'plural) (+ numerus 2))
+                                                                                                  (else 1)))
+                                         (else 1)))
+        (else numerus)))
+
+(define (grammatik-numerus-nomen wort)
+  (car (cdr (cdr (cdr (cdr (wortfinder wort *lex*)))))))
+
+(define (grammatik-genus wort)
+  (car (cdr (cdr (cdr (wortfinder wort *lex*))))))

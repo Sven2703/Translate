@@ -1,0 +1,19 @@
+(define *lex*
+  '((cat nomen (Katze))
+    (dog nomen (Hund))
+    (eats verb (frisst))
+    (jumps verb (springt))
+    (the artikel (die))
+    (the artikel (der))))
+
+(define (satzueberstzer satz)
+  (define (satzueberstzer-hilfe satz fall person numerus wortZuvor)
+    (cond ((null? satz)'())
+          (else (cons (wortuebersetzer (car satz) fall person numerus *lex*)
+                      (satzueberstetzer-hilfe
+                       (cdr satz)
+                       (grammatik-fall (car satz) fall)
+                       (grammatik-person (car satz) person)
+                       (grammatik-numerus (car satz) numerus wortZuvor)
+                       (car satz))))))
+  (satzueberstzer-hilfe satz nominativ 
